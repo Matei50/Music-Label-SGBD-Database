@@ -1,7 +1,7 @@
 # DBMS Project – Oracle 19c
 ## Music Industry Management System
 ---
-Varianta in Romana: (README.md) [README.md]
+Varianta in Romana: [README.md](README.md)
 
 ## General Description
 This project implements a relational database designed to manage activities within the music industry, including artists, albums, songs, music genres, sales, managers, and distributors.
