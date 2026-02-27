@@ -1,6 +1,5 @@
 # DBMS Project – Oracle 19c
 ## Music Industry Management System
----
 Varianta in Romana: [README.md](README.md)
 
 ## General Description
