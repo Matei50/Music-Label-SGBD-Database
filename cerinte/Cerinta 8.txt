@@ -1,0 +1,57 @@
+--Cerinta 8
+
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE FUNCTION ex8_valoare_vanzare_album_manager (
+    p_titlu_album IN album.titlu%TYPE,
+    p_id_manager  IN manager.id_manager%TYPE
+) RETURN NUMBER
+IS
+    v_valoare NUMBER;
+BEGIN
+    SELECT v.cantitate * v.pret_unitar
+    INTO v_valoare
+    FROM vanzari v
+    JOIN album   a ON a.id_album = v.id_album
+    JOIN manager m ON m.id_manager = v.id_manager
+    WHERE a.titlu = p_titlu_album
+      AND m.id_manager = p_id_manager;
+
+    RETURN v_valoare;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('NO_DATA_FOUND: Nu exista nicio vanzare pentru album="' ||
+                             p_titlu_album || '" si manager=' || p_id_manager);
+        RETURN -1;
+
+    WHEN TOO_MANY_ROWS THEN
+        DBMS_OUTPUT.PUT_LINE('TOO_MANY_ROWS: Exista mai multe vanzari pentru album="' ||
+                             p_titlu_album || '" si manager=' || p_id_manager ||
+                             '". Restrange criteriile (ex. adauga data).');
+        RETURN -2;
+
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('OTHERS: ' || SQLERRM);
+        RETURN -3;
+END;
+/
+
+SET SERVEROUTPUT ON;
+
+-- 1) Caz TOO_MANY_ROWS (foarte probabil, fiindca exista mai multe vanzari pe acelasi album+manager)
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('Rezultat=' || ex8_valoare_vanzare_album_manager('Rodeo', 1));
+END;
+/
+
+-- 2) Caz NO_DATA_FOUND (manager inexistent sau combinatie fara vanzari)
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('Rezultat=' || ex8_valoare_vanzare_album_manager('Rodeo', 9999));
+END;
+/
+
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('Rezultat=' || ex8_valoare_vanzare_album_manager('AlbumInexistent', 1));
+END;
+/

@@ -1,0 +1,151 @@
+-- Cerinta 6
+
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE PROCEDURE ex6_raport_artist_luna (
+    p_id_artist IN artist.id_artist%TYPE,
+    p_an        IN NUMBER,
+    p_luna      IN NUMBER
+) AS
+
+    TYPE t_vanzari_zi IS VARRAY(31) OF NUMBER;
+    v_vanzari_zi t_vanzari_zi := t_vanzari_zi();
+
+    TYPE t_album_titlu_map IS TABLE OF album.titlu%TYPE INDEX BY PLS_INTEGER;
+    v_titlu_by_album t_album_titlu_map;
+
+    -- nested table 
+    TYPE t_piesa_row IS RECORD (
+        id_piesa    piesa.id_piesa%TYPE,
+        titlu       piesa.titlu%TYPE,
+        nume_gen    gen_muzical.nume_gen%TYPE,
+        bpm         piesa.bpm%TYPE
+    );
+    TYPE t_piesa_tab IS TABLE OF t_piesa_row;
+    v_piese t_piesa_tab;
+
+    TYPE t_distr_row IS RECORD (
+        id_distribuitor distribuitor.id_distribuitor%TYPE,
+        contact         distribuitor.contact%TYPE,
+        nr_distribuiri  distributie_album.nr_distribuiri%TYPE
+    );
+    TYPE t_distr_tab IS TABLE OF t_distr_row;
+    v_distr t_distr_tab;
+
+    v_nume_artist artist.nume%TYPE;
+    v_prenume_artist artist.prenume%TYPE;
+
+    v_start DATE := TO_DATE(p_an || '-' || LPAD(p_luna,2,'0') || '-01', 'YYYY-MM-DD');
+    v_end   DATE := ADD_MONTHS(v_start, 1);
+
+    v_nr_albume NUMBER := 0;
+
+BEGIN
+    v_vanzari_zi.EXTEND(31);
+    FOR i IN 1..31 LOOP
+        v_vanzari_zi(i) := 0;
+    END LOOP;
+
+    -- Verificam artistul
+    SELECT nume, prenume
+    INTO v_nume_artist, v_prenume_artist
+    FROM artist
+    WHERE id_artist = p_id_artist;
+
+    DBMS_OUTPUT.PUT_LINE('=== RAPORT ARTIST: ' || v_nume_artist || ' ' || v_prenume_artist ||
+                         ' (id=' || p_id_artist || ') | Luna: ' || p_luna || '/' || p_an || ' ===');
+
+
+    -- Parcurgem albumele artistului (si populam map-ul asociativ)
+    FOR a IN (
+        SELECT id_album, titlu
+        FROM album
+        WHERE id_artist = p_id_artist
+        ORDER BY id_album
+    ) LOOP
+        v_nr_albume := v_nr_albume + 1;
+        v_titlu_by_album(a.id_album) := a.titlu;
+
+        DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- ALBUM #' || a.id_album || ': ' || a.titlu || ' ---');
+
+        -- PIESA (nested table) pentru album
+        SELECT p.id_piesa, p.titlu, g.nume_gen, p.bpm
+        BULK COLLECT INTO v_piese
+        FROM piesa p
+        LEFT JOIN gen_muzical g ON g.id_gen = p.id_gen
+        WHERE p.id_album = a.id_album
+        ORDER BY p.id_piesa;
+
+        IF v_piese.COUNT = 0 THEN
+            DBMS_OUTPUT.PUT_LINE('   Piese: (nu exista)');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('   Piese (' || v_piese.COUNT || '):');
+            FOR i IN 1..v_piese.COUNT LOOP
+                DBMS_OUTPUT.PUT_LINE('     - [' || v_piese(i).id_piesa || '] ' || v_piese(i).titlu ||
+                                     ' | gen=' || NVL(v_piese(i).nume_gen,'(necunoscut)') ||
+                                     ' | bpm=' || NVL(TO_CHAR(v_piese(i).bpm),'?'));
+            END LOOP;
+        END IF;
+
+        -- DISTRIBUITORI (nested table) pentru album
+        SELECT d.id_distribuitor, d.contact, da.nr_distribuiri
+        BULK COLLECT INTO v_distr
+        FROM distributie_album da
+        JOIN distribuitor d ON d.id_distribuitor = da.id_distribuitor
+        WHERE da.id_album = a.id_album
+        ORDER BY da.nr_distribuiri DESC, d.id_distribuitor;
+
+        IF v_distr.COUNT = 0 THEN
+            DBMS_OUTPUT.PUT_LINE('   Distribuitori: (nu exista)');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('   Distribuitori (' || v_distr.COUNT || '):');
+            FOR j IN 1..v_distr.COUNT LOOP
+                DBMS_OUTPUT.PUT_LINE('     - [' || v_distr(j).id_distribuitor || '] ' ||
+                                     v_distr(j).contact || ' | nr_distribuiri=' || v_distr(j).nr_distribuiri);
+            END LOOP;
+        END IF;
+
+    END LOOP;
+
+    IF v_nr_albume = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Artistul nu are albume. Raport oprit.');
+        RETURN;
+    END IF;
+
+    FOR r IN (
+        SELECT EXTRACT(DAY FROM v.data_vanzare) AS zi,
+               SUM(v.cantitate) AS total_cant
+        FROM vanzari v
+        JOIN album a ON a.id_album = v.id_album
+        WHERE a.id_artist = p_id_artist
+          AND v.data_vanzare >= v_start
+          AND v.data_vanzare <  v_end
+        GROUP BY EXTRACT(DAY FROM v.data_vanzare)
+        ORDER BY zi
+    ) LOOP
+        IF r.zi BETWEEN 1 AND 31 THEN
+            v_vanzari_zi(r.zi) := NVL(r.total_cant, 0);
+        END IF;
+    END LOOP;
+
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '=== VANZARI (cantitate totala) pe zile in luna ' ||
+                         p_luna || '/' || p_an || ' ===');
+
+    FOR d IN 1..31 LOOP
+        IF v_vanzari_zi(d) > 0 THEN
+            DBMS_OUTPUT.PUT_LINE('Ziua ' || LPAD(d,2,'0') || ': ' || v_vanzari_zi(d));
+        END IF;
+    END LOOP;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Eroare: nu exista artist cu id=' || p_id_artist);
+END;
+/
+
+BEGIN
+  ex6_raport_artist_luna(p_id_artist => 1, p_an => 2025, p_luna => 5);
+END;
+/
+
+-- pt un artist dat ca parametru, det toate albumele si pt fiecare album af lista pieselor si situatia distributiei

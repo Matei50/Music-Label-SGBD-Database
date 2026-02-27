@@ -1,0 +1,97 @@
+-- Cerinta 9
+
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE PROCEDURE ex9_raport_complex ( -- ver daca artistul are vanzari prin managerul dat
+    p_id_artist  IN artist.id_artist%TYPE,
+    p_id_manager IN manager.id_manager%TYPE
+)
+IS
+    ex_artist_inexistent EXCEPTION;
+    ex_fara_vanzari      EXCEPTION;
+
+    v_count_artist  NUMBER;
+    v_count_vanzari NUMBER;
+BEGIN
+    -- verificare artist existent
+    SELECT COUNT(*)
+    INTO v_count_artist
+    FROM artist
+    WHERE id_artist = p_id_artist;
+
+    IF v_count_artist = 0 THEN
+        RAISE ex_artist_inexistent;
+    END IF;
+
+    -- ver existenta vanzari
+    SELECT COUNT(*)
+    INTO v_count_vanzari
+    FROM album a
+    JOIN vanzari v ON v.id_album = a.id_album
+    WHERE a.id_artist = p_id_artist
+      AND v.id_manager = p_id_manager;
+
+    IF v_count_vanzari = 0 THEN
+        RAISE ex_fara_vanzari;
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('=== RAPORT COMPLEX ===');
+
+    -- parcurg rez unei interogari si af raport pt fiecare inregistrare gasita
+    FOR r IN (
+        SELECT ar.nume_scena,
+               a.titlu AS album,
+               p.titlu AS piesa,
+               g.nume_gen,
+               v.cantitate,
+               v.cantitate * v.pret_unitar AS valoare
+        FROM artist ar
+        JOIN album a ON a.id_artist = ar.id_artist
+        JOIN piesa p ON p.id_album = a.id_album
+        LEFT JOIN gen_muzical g ON g.id_gen = p.id_gen
+        JOIN vanzari v ON v.id_album = a.id_album
+        JOIN manager m ON m.id_manager = v.id_manager
+        WHERE ar.id_artist = p_id_artist
+          AND m.id_manager = p_id_manager
+    )
+    LOOP
+        DBMS_OUTPUT.PUT_LINE(
+            r.nume_scena || ' | ' ||
+            r.album || ' | ' ||
+            r.piesa || ' | ' ||
+            NVL(r.nume_gen,'N/A') || ' | cant=' ||
+            r.cantitate || ' | valoare=' ||
+            r.valoare
+        );
+    END LOOP;
+
+EXCEPTION
+    WHEN ex_artist_inexistent THEN
+        DBMS_OUTPUT.PUT_LINE('EXCEPTIE PROPRIE: Artistul nu exista.');
+
+    WHEN ex_fara_vanzari THEN
+        DBMS_OUTPUT.PUT_LINE('EXCEPTIE PROPRIE: Artistul nu are vanzari prin acest manager.');
+
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Alta eroare: ' || SQLERRM);
+END;
+/
+
+
+-- Caz valid
+BEGIN
+  ex9_raport_complex(1, 1);
+END;
+/
+
+-- Artist inexistent
+BEGIN
+  ex9_raport_complex(9999, 1);
+END;
+/
+
+-- Artist existent dar fara vanzari prin manager
+BEGIN
+  ex9_raport_complex(1, 9999);
+END;
+/

@@ -1,0 +1,46 @@
+--Cerinta 11
+
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE TRIGGER ex11_lmd_linie_vanzari
+FOR DELETE ON vanzari
+COMPOUND TRIGGER
+
+  v_cnt_rows   PLS_INTEGER := 0;
+  v_total_val  NUMBER := 0;
+
+  BEFORE STATEMENT IS
+  BEGIN
+    v_cnt_rows  := 0;
+    v_total_val := 0;
+  END BEFORE STATEMENT;
+
+  BEFORE EACH ROW IS
+  BEGIN
+    IF TO_CHAR(SYSDATE, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT','SUN') THEN
+      RAISE_APPLICATION_ERROR(-20001, 'Este interzisa stergerea vanzarilor in weekend!');
+    END IF;
+
+    -- contorizam randurile sterse si valoarea lor 
+    v_cnt_rows  := v_cnt_rows + 1;
+    v_total_val := v_total_val + (:OLD.cantitate * :OLD.pret_unitar);
+  END BEFORE EACH ROW;
+
+  AFTER STATEMENT IS
+  BEGIN
+    DBMS_OUTPUT.PUT_LINE('DELETE permis. Randuri afectate: ' || v_cnt_rows);    
+    DBMS_OUTPUT.PUT_LINE('Valoare totala randuri sterse: ' || TO_CHAR(v_total_val, 'FM9999990.00'));
+  END AFTER STATEMENT;
+
+END ex11_lmd_linie_vanzari;
+/
+
+
+BEGIN
+  DELETE FROM vanzari WHERE id_vanzari = 1;
+  ROLLBACK;
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('Trigger activat / operatia blocata: ' || SQLERRM);
+END;
+/

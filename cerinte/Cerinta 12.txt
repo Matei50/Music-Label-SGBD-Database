@@ -1,0 +1,35 @@
+-- Cerinta 12
+
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE TRIGGER ex12_ldd_no_drop
+    BEFORE DROP ON SCHEMA
+BEGIN
+    IF ORA_DICT_OBJ_TYPE = 'TABLE' THEN
+        RAISE_APPLICATION_ERROR(-20002, 
+            'ALERTA LDD: Nu aveti dreptul sa stergeti tabele din aceasta schema! (' || ORA_DICT_OBJ_NAME || ')');
+    END IF;
+    
+    DBMS_OUTPUT.PUT_LINE('Notificare LDD: S-a sters obiectul ' || ORA_DICT_OBJ_NAME || ' de tipul ' || ORA_DICT_OBJ_TYPE);
+END;
+/
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('--- TESTARE TRIGGER LDD ---');
+
+    EXECUTE IMMEDIATE 'CREATE TABLE tabel_victima (id NUMBER)';
+    DBMS_OUTPUT.PUT_LINE('1. Tabelul "tabel_victima" a fost creat cu succes.');
+
+    BEGIN
+        EXECUTE IMMEDIATE 'DROP TABLE tabel_victima';
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('2. INCERCARE STERGERE BLOCATA: ' || SQLERRM);
+    END;
+
+    EXECUTE IMMEDIATE 'ALTER TRIGGER ex12_ldd_no_drop DISABLE';
+    EXECUTE IMMEDIATE 'DROP TABLE tabel_victima';
+    EXECUTE IMMEDIATE 'ALTER TRIGGER ex12_ldd_no_drop ENABLE';
+    DBMS_OUTPUT.PUT_LINE('3. Curatenie efectuata (Trigger dezactivat -> stergere -> reactivat).');
+END;
+/

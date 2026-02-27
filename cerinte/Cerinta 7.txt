@@ -1,0 +1,64 @@
+--Cerinta 7
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE PROCEDURE ex7_cursoare_artist (
+    p_id_artist IN artist.id_artist%TYPE
+) AS
+    -- Cursor parametrizat 
+    CURSOR c_piese (p_id_album IN album.id_album%TYPE) IS
+        SELECT p.id_piesa,
+               p.titlu,
+               p.bpm,
+               gm.nume_gen
+        FROM piesa p
+        LEFT JOIN gen_muzical gm ON gm.id_gen = p.id_gen
+        WHERE p.id_album = p_id_album
+        ORDER BY p.id_piesa;
+
+    v_count_albume PLS_INTEGER := 0;
+    v_count_piese  PLS_INTEGER := 0;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('=== Raport artist id=' || p_id_artist || ' ===');
+
+    -- Cursor implicit pentru albumele artistului
+    FOR a IN (
+        SELECT id_album, titlu
+        FROM album
+        WHERE id_artist = p_id_artist
+        ORDER BY id_album
+    ) LOOP
+        v_count_albume := v_count_albume + 1;
+        DBMS_OUTPUT.PUT_LINE(CHR(10) || 'Album #' || a.id_album || ': ' || a.titlu);
+
+        v_count_piese := 0;
+
+        FOR p IN c_piese(a.id_album) LOOP
+            v_count_piese := v_count_piese + 1;
+            DBMS_OUTPUT.PUT_LINE(
+                '   Piesa #' || p.id_piesa ||
+                ' | ' || p.titlu ||
+                ' | bpm=' || NVL(TO_CHAR(p.bpm), 'N/A') ||
+                ' | gen=' || NVL(p.nume_gen, 'N/A')
+            );
+        END LOOP;
+
+        IF v_count_piese = 0 THEN   
+            DBMS_OUTPUT.PUT_LINE('   (nu exista piese pentru acest album)');
+        END IF;
+    END LOOP;
+
+    IF v_count_albume = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Artistul nu are albume sau id_artist nu exista.');
+    END IF;
+END;
+/
+
+BEGIN
+    ex7_cursoare_artist(1); 
+END;
+/
+
+
+
+
+--af toate albumele unui artist si pt fiecare album, piesele
