@@ -1,7 +1,7 @@
 # Proiect SGBD – Oracle 19c
 ## Sistem de gestiune pentru industria muzicală
 ---
-Varianta in engleza: (README.en.md) [README.en.md] 
+English version: [README.en.md](README.en.md)
 
 ## Descriere generală
 Proiectul implementează o bază de date relațională destinată gestionării activităților din industria muzicală: artiști, albume, piese, genuri muzicale, vânzări, manageri și distribuitori.
