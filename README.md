@@ -1,6 +1,5 @@
 # Proiect SGBD – Oracle 19c
 ## Sistem de gestiune pentru industria muzicală
----
 English version: [README.en.md](README.en.md)
 
 ## Descriere generală
